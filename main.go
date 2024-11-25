@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/joho/godotenv"
 	"io"
+	"log"
 	"net/http"
-	"os"
+	
+
+	"github.com/joho/godotenv"
 )
 
 type Customer struct {
@@ -36,11 +38,22 @@ var userCustomer = Customer{
 	PostalCode:    "31846515",
 }
 
+var accessToken string
+
 func main() {
-	err := godotenv.Load()
+	// Lê o arquivo .env e obtém as variáveis em um mapa
+	envMap, err := godotenv.Read()
 	if err != nil {
-		fmt.Println("Erro ao carregar o arquivo .env:", err)
-		return
+		log.Fatalf("Erro ao ler o arquivo .env: %v", err)
+	}
+
+	// Define o token de acesso como uma variável global
+	var exists bool
+	accessToken, exists = envMap["ACCESS_TOKEN"]
+	if !exists || accessToken == "" {
+		log.Fatalf("ACCESS_TOKEN não encontrado ou está vazio no arquivo .env")
+	} else {
+		log.Println("Token de acesso carregado com sucesso.")
 	}
 
 	// handlers
@@ -52,11 +65,11 @@ func main() {
 		fmt.Println("Erro ao iniciar o servidor:", err)
 	}
 }
+
 // verifica se o cliente já existe
 func checkCustomerHandler(w http.ResponseWriter, r *http.Request) {
-	accessToken := os.Getenv("ACCESS_TOKEN")
 	if accessToken == "" {
-		fmt.Println("ACCESS_TOKEN não encontrado nas variáveis de ambiente dentro do handler")
+		log.Println("ACCESS_TOKEN não configurado no handler")
 		http.Error(w, "Token de acesso não configurado", http.StatusInternalServerError)
 		return
 	}
@@ -76,8 +89,10 @@ func checkCustomerHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func createCustomerHandler(w http.ResponseWriter, r *http.Request) {
-	accessToken := os.Getenv("ACCESS_TOKEN")
-	
+	if accessToken == "" {
+		http.Error(w, "Token de acesso não configurado", http.StatusInternalServerError)
+		return
+	}
 
 	exists, err := checkCustomerExists(accessToken, userCustomer)
 	if err != nil {
